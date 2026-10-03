@@ -1,0 +1,14 @@
+# Archivos pesados / de VM: NO subir
+*.vmdk
+*.iso
+*.nvram
+*.vmem
+*.vmss
+*.vmsn
+*.vmsd
+*.vmxf
+*.log
+*.lck/
+*.scoreboard
+# VMs de prueba generadas por el script
+Virtual Machines/

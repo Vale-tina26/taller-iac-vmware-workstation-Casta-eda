@@ -119,7 +119,3 @@ Las evidencias (capturas) están en la carpeta [`evidencias/`](evidencias/).
 - No se suben archivos `.vmdk`, `.iso`, `.nvram` ni otros archivos pesados de VM.
 - Si una ruta de ISO contiene caracteres con tilde, pueden no guardarse bien en
   el `.vmx` por la codificación de `cmd`; use rutas sin acentos.
-
-## Licencia
-
-MIT (ver `LICENSE`).

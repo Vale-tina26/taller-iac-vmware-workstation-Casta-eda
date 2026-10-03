@@ -2,7 +2,7 @@
 rem =====================================================================
 rem  crear-vm.cmd - Crea una VM en VMware Workstation (Infraestructura
 rem  como Codigo con cmd.exe). Solo ASCII a proposito (ver informe, Q8).
-rem  ETAPA 2: validaciones, herramientas, idempotencia y --dry-run.
+rem  ETAPA 3: creacion real (carpeta, disco, .vmx). Sin --start ni --force aun.
 rem
 rem  Codigos de salida: 0 = correcto | 1 = fallo de ejecucion
 rem                     2 = parametros invalidos
@@ -126,7 +126,39 @@ echo [dry-run] 7. Validar existencia de archivos ^(y ejecucion si --start^)
 exit /b 0
 
 :real
-echo ^(Etapa 2: la creacion real aun no esta implementada.^)
+if "%EXISTS%"=="0" goto :create
+echo ERROR: --force aun no esta implementado ^(etapa 4^).
+exit /b 1
+
+:create
+echo [2/7] Creando carpeta de la VM...
+mkdir "%VMDIR%"
+if errorlevel 1 goto :fail
+set "CREATED=1"
+
+echo [3/7] Creando disco virtual dinamico de %DISK% GB...
+"%VDM%" -c -s %DISK%GB -a lsilogic -t 0 "%VMDK%"
+if errorlevel 1 goto :fail
+if not exist "%VMDK%" goto :fail
+
+echo [4/7] Generando archivo de configuracion .vmx...
+call :genvmx
+if errorlevel 1 goto :fail
+
+echo [5/7] Registro: Workstation no necesita registrar la VM; el .vmx ya es abrible.
+
+if "%START%"=="1" echo [6/7] --start aun no esta implementado ^(etapa 4^); se omite.
+
+:validate
+echo [7/7] Validando...
+if not exist "%VMX%" goto :fail
+if not exist "%VMDK%" goto :fail
+echo   OK: existe "%VMX%"
+echo   OK: existe "%VMDK%"
+
+:done
+echo.
+echo Listo. VM "%NAME%" creada correctamente.
 exit /b 0
 
 rem ---------- Subrutinas ----------
@@ -139,7 +171,46 @@ if errorlevel 1 (
 )
 exit /b 0
 
+:genvmx
+setlocal EnableDelayedExpansion
+(
+echo .encoding = "windows-1252"
+echo config.version = "8"
+echo virtualHW.version = "16"
+echo displayName = "!NAME!"
+echo guestOS = "ubuntu-64"
+echo memsize = "!MEM!"
+echo numvcpus = "!CPUS!"
+echo scsi0.present = "TRUE"
+echo scsi0.virtualDev = "lsilogic"
+echo scsi0:0.present = "TRUE"
+echo scsi0:0.fileName = "!NAME!.vmdk"
+echo ethernet0.present = "TRUE"
+echo ethernet0.connectionType = "!NET!"
+echo ethernet0.virtualDev = "e1000"
+echo ethernet0.addressType = "generated"
+echo ethernet0.startConnected = "TRUE"
+echo floppy0.present = "FALSE"
+echo tools.syncTime = "TRUE"
+) > "!VMX!"
+if defined ISO (
+    >> "!VMX!" echo ide1:0.present = "TRUE"
+    >> "!VMX!" echo ide1:0.deviceType = "cdrom-image"
+    >> "!VMX!" echo ide1:0.fileName = "!ISO!"
+    >> "!VMX!" echo ide1:0.startConnected = "TRUE"
+) else (
+    >> "!VMX!" echo ide1:0.present = "TRUE"
+    >> "!VMX!" echo ide1:0.deviceType = "cdrom-raw"
+    >> "!VMX!" echo ide1:0.autodetect = "TRUE"
+)
+endlocal
+exit /b 0
+
 rem ---------- Manejo de errores ----------
+:fail
+echo ERROR: la creacion fallo.
+if "%CREATED%"=="1" rd /s /q "%VMDIR%"
+exit /b 1
 
 
 

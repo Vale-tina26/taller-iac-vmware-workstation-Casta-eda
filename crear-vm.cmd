@@ -2,7 +2,7 @@
 rem =====================================================================
 rem  crear-vm.cmd - Crea una VM en VMware Workstation (Infraestructura
 rem  como Codigo con cmd.exe). Solo ASCII a proposito (ver informe, Q8).
-rem  ETAPA 3: creacion real (carpeta, disco, .vmx). Sin --start ni --force aun.
+rem  ETAPA 4 (completa): agrega --start, --force y validacion de ejecucion.
 rem
 rem  Codigos de salida: 0 = correcto | 1 = fallo de ejecucion
 rem                     2 = parametros invalidos
@@ -127,8 +127,11 @@ exit /b 0
 
 :real
 if "%EXISTS%"=="0" goto :create
-echo ERROR: --force aun no esta implementado ^(etapa 4^).
-exit /b 1
+"%VMRUN%" -T ws list | findstr /i /l /c:"%VMX%" >nul
+if not errorlevel 1 goto :running
+echo [2/7] --force: eliminando la VM existente...
+rd /s /q "%VMDIR%"
+if exist "%VMDIR%" goto :fail
 
 :create
 echo [2/7] Creando carpeta de la VM...
@@ -147,7 +150,10 @@ if errorlevel 1 goto :fail
 
 echo [5/7] Registro: Workstation no necesita registrar la VM; el .vmx ya es abrible.
 
-if "%START%"=="1" echo [6/7] --start aun no esta implementado ^(etapa 4^); se omite.
+if "%START%"=="0" goto :validate
+echo [6/7] Encendiendo la VM...
+"%VMRUN%" -T ws start "%VMX%" nogui
+if errorlevel 1 goto :failstart
 
 :validate
 echo [7/7] Validando...
@@ -155,6 +161,10 @@ if not exist "%VMX%" goto :fail
 if not exist "%VMDK%" goto :fail
 echo   OK: existe "%VMX%"
 echo   OK: existe "%VMDK%"
+if "%START%"=="0" goto :done
+"%VMRUN%" -T ws list | findstr /i /l /c:"%VMX%" >nul
+if errorlevel 1 goto :notrunning
+echo   OK: la VM esta en ejecucion.
 
 :done
 echo.
@@ -212,7 +222,13 @@ echo ERROR: la creacion fallo.
 if "%CREATED%"=="1" rd /s /q "%VMDIR%"
 exit /b 1
 
+:failstart
+echo ERROR: no se pudo encender la VM ^(los archivos quedaron creados^).
+exit /b 1
 
+:notrunning
+echo ERROR: la VM no aparece en ejecucion segun vmrun list.
+exit /b 1
 
 :already
 echo ERROR: la VM ya existe en "%VMDIR%". Use --force para recrearla.
@@ -222,6 +238,9 @@ exit /b 1
 echo ERROR: la carpeta existe pero no contiene "%NAME%.vmx"; no se toca.
 exit /b 1
 
+:running
+echo ERROR: la VM esta encendida; apaguela antes de usar --force.
+exit /b 1
 
 :badname
 echo ERROR: --name solo admite letras, numeros, punto, guion y guion bajo.
